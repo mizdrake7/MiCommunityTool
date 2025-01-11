@@ -14,3 +14,6 @@ pkg install python3
 ```
 curl -sSL -o "$PREFIX/bin/micommunit" https://github.com/offici5l/MiCommunityTool/releases/latest/download/MiCommunityTool.py
 ```
+```
+micommunit
+```
