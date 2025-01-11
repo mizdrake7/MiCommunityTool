@@ -12,7 +12,7 @@ Download [MiCommunityTool](https://github.com/offici5l/MiCommunityTool/releases/
 pkg install python3
 ```
 ```
-curl -sSL -o "$PREFIX/bin/micommunit" https://github.com/offici5l/MiCommunityTool/releases/latest/download/MiCommunityTool.py
+curl -sSL https://github.com/offici5l/MiCommunityTool/releases/latest/download/MiCommunityTool.py -o "$PREFIX/bin/micommunit" && chmod +x "$PREFIX/bin/micommunit"
 ```
 ```
 micommunit
