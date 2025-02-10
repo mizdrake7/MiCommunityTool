@@ -1,7 +1,7 @@
 import requests, json, hashlib, urllib.parse, time, shelve, sys, binascii, hmac, re  
 from datetime import datetime, timedelta, timezone
 
-version = "1.1"
+version = "dev"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
