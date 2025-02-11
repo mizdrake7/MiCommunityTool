@@ -1,5 +1,6 @@
-import requests, json, hashlib, urllib.parse, time, shelve, sys, binascii, hmac, re  
+import requests, json, hashlib, urllib.parse, time, sys
 from datetime import datetime, timedelta, timezone
+import ntplib
 
 version = "dev"
 
@@ -20,7 +21,7 @@ try:
 except Exception as e:
     exit(e)
 
-    
+
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
 url_state = api + "user/bl-switch/state"
@@ -68,7 +69,7 @@ def apply_request():
             exit()
         elif apply_result == 3:
             print(f"\nApplication quota limit reached, please try again after {date} (mm/dd) {time} (GMT+8)\n")
-            exit()
+            return 1
         elif apply_result == 5:
             print("\nApplication failed. Please try again later\n")
             exit()
@@ -87,32 +88,75 @@ def apply_request():
 
 state_request()
 
-beijing_tz = timezone(timedelta(hours=8))
-now = datetime.now(beijing_tz)
+def get_ntp_time(servers=["pool.ntp.org", "time.google.com", "time.windows.com"]):
+    client = ntplib.NTPClient()
+    for server in servers:
+        try:
+            response = client.request(server, version=3, timeout=5)
+            return datetime.fromtimestamp(response.tx_time, timezone.utc)
+        except Exception:
+            continue
+    return datetime.now(timezone.utc)
 
-target_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-if now >= target_time:
-    target_time += timedelta(days=1)
+def get_beijing_time():
+    utc_time = get_ntp_time()
+    return utc_time.astimezone(timezone(timedelta(hours=8)))
 
-def measure_latency():
-    total_rtt = 0
-    successful = 0
-    for _ in range(3):
+def precise_sleep(target_time, precision=0.01):
+    while True:
+        diff = (target_time - datetime.now(target_time.tzinfo)).total_seconds()
+        if diff <= 0:
+            return
+        sleep_time = max(min(diff - precision/2, 1), precision)
+        time.sleep(sleep_time)
+
+def measure_latency(url, samples=5):
+    latencies = []
+    for _ in range(samples):
         try:
             start = time.perf_counter()
-            response = requests.head(url_apply, headers=headers, timeout=2)
-            response.raise_for_status()
-            total_rtt += (time.perf_counter() - start) * 1000
-            successful += 1
-        except:
+            requests.post(url, headers=headers, data='{}', timeout=2)
+            latencies.append((time.perf_counter() - start) * 1000)
+        except Exception:
             continue
-    return total_rtt / successful if successful > 0 else 100 
+    
+    if len(latencies) < 3:
+        return 200
+    
+    latencies.sort()
+    trim = int(len(latencies) * 0.2)
+    trimmed = latencies[trim:-trim] if trim else latencies
+    return sum(trimmed)/len(trimmed) * 1.3
 
-latency = measure_latency()
-safety_margin = 50
-adjusted_time = target_time - timedelta(milliseconds=latency + safety_margin)
+def schedule_daily_task():
+    beijing_tz = timezone(timedelta(hours=8))
+    
+    while True:
+        now = get_beijing_time()
+        target = now.replace(hour=23, minute=57, second=0, microsecond=0)
+        if now >= target:
+            target += timedelta(days=1)
+        
+        print(f"\nNext execution at: {target.strftime('%Y-%m-%d %H:%M:%S.%f')} CST")
+        while datetime.now(beijing_tz) < target:
+            time_left = (target - datetime.now(beijing_tz)).total_seconds()
+            if time_left > 300:
+                time.sleep(60)
+            else:
+                precise_sleep(target)
+        
+        latency = measure_latency(url_apply)
+        execution_time = target + timedelta(minutes=3) - timedelta(milliseconds=latency)
+        
+        print(f"Adjusted execution time: {execution_time.strftime('%H:%M:%S.%f')}")
+        precise_sleep(execution_time)
+        
+        result = apply_request()
+        if result == 1:
+            return 1
 
-while datetime.now(beijing_tz) < adjusted_time:
-    print(f"""\r{datetime.now(beijing_tz).strftime("%H:%M:%S.%f%z")} => {adjusted_time.strftime("%H:%M:%S.%f%z")}      """, end="", flush=True)
 
-apply_request()
+while True:
+    result = schedule_daily_task()
+    if result != 1:
+        break
