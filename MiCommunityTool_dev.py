@@ -15,11 +15,20 @@ try:
     r1 = requests.post("https://account.xiaomi.com/pass/serviceLoginAuth2", headers=headers, data={"callback": "https://sgp-api.buy.mi.com/bbs/api/global/user/login-back?followup=https%3A%2F%2Fnew.c.mi.com%2Fglobal%2F&sign=NTRhYmNhZWI1ZWM2YTFmY2U3YzU1NzZhOTBhYjJmZWI1ZjY3MWNiNQ%2C%2C", "sid": "18n_bbs_global", "_sign": "Phs2y/c0Xf7vJZG9Z6n9c+Nbn7g=", "user": user, "hash": hashlib.md5(pwd.encode(encoding='utf-8')).hexdigest().upper(), "_json": "true"})
     json_data = json.loads(r1.text[11:])
     if json_data["code"] == 70016: exit("invalid user or pwd")
+    if "notificationUrl" in json_data:
+        check = json_data["notificationUrl"]
+        if "SetEmail" in check:
+            exit(f"Verification, please add an email to the account: {check}")
+        elif "BindAppealOrSafePhone" in check:
+            exit(f"Verification, please add an phone number to the account: {check}")
+        else:
+            exit(check)
     location_url = json_data['location']
     r2 = requests.get(location_url, headers=headers, allow_redirects=False)
     cookies = r2.cookies.get_dict()
 except Exception as e:
     exit(f"Error: {e}")
+
 
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
@@ -123,10 +132,10 @@ def measure_latency(url, samples=5):
             latencies.append((time.perf_counter() - start) * 1000)
         except Exception:
             continue
-    
+
     if len(latencies) < 3:
         return 200
-    
+
     latencies.sort()
     trim = int(len(latencies) * 0.2)
     trimmed = latencies[trim:-trim] if trim else latencies
@@ -134,13 +143,13 @@ def measure_latency(url, samples=5):
 
 def schedule_daily_task():
     beijing_tz = timezone(timedelta(hours=8))
-    
+
     while True:
         now = get_beijing_time()
         target = now.replace(hour=23, minute=57, second=0, microsecond=0)
         if now >= target:
             target += timedelta(days=1)
-        
+
         print(f"\nNext execution at: {target.strftime('%Y-%m-%d %H:%M:%S.%f')} CST")
         while datetime.now(beijing_tz) < target:
             time_left = (target - datetime.now(beijing_tz)).total_seconds()
@@ -148,13 +157,13 @@ def schedule_daily_task():
                 time.sleep(60)
             else:
                 precise_sleep(target)
-        
+
         latency = measure_latency(url_apply)
         execution_time = target + timedelta(minutes=3) - timedelta(milliseconds=latency)
-        
+
         print(f"Adjusted execution time: {execution_time.strftime('%H:%M:%S.%f')}")
         precise_sleep(execution_time)
-        
+
         result = apply_request()
         if result == 1:
             return 1
