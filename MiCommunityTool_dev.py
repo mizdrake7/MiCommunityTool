@@ -19,7 +19,7 @@ try:
     r2 = requests.get(location_url, headers=headers, allow_redirects=False)
     cookies = r2.cookies.get_dict()
 except Exception as e:
-    exit(e)
+    exit(f"Error: {e}")
 
 
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
