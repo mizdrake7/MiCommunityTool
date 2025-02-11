@@ -13,6 +13,8 @@ pwd = input('\nEnter pwd: ')
 
 try:
     r1 = requests.post("https://account.xiaomi.com/pass/serviceLoginAuth2", headers=headers, data={"callback": "https://sgp-api.buy.mi.com/bbs/api/global/user/login-back?followup=https%3A%2F%2Fnew.c.mi.com%2Fglobal%2F&sign=NTRhYmNhZWI1ZWM2YTFmY2U3YzU1NzZhOTBhYjJmZWI1ZjY3MWNiNQ%2C%2C", "sid": "18n_bbs_global", "_sign": "Phs2y/c0Xf7vJZG9Z6n9c+Nbn7g=", "user": user, "hash": hashlib.md5(pwd.encode(encoding='utf-8')).hexdigest().upper(), "_json": "true"})
+    region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=r1.cookies.get_dict()).text[11:])["data"]["region"]
+    print(f"\nAccount Region: {region}")
     json_data = json.loads(r1.text[11:])
     if json_data["code"] == 70016: exit("invalid user or pwd")
     if "notificationUrl" in json_data:
@@ -34,7 +36,10 @@ api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
 url_state = api + "user/bl-switch/state"
 url_apply = api + "apply/bl-auth"
-# for get info user: api + "user/data"
+
+# url_info = api + "user/data"
+# info = requests.get(url_info, headers=headers, cookies=cookies).json()
+#print(info)
 
 def state_request():
     print("\n[STATE]:")
