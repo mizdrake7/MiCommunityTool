@@ -21,16 +21,17 @@ try:
 except Exception as e:
     exit(f"Error: {e}")
 
-
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
 url_state = api + "user/bl-switch/state"
 url_apply = api + "apply/bl-auth"
 
-
 def state_request():
     print("\n[STATE]:")
-    state = requests.get(url_state, headers=headers, cookies=cookies).json()
+    try:
+        state = requests.get(url_state, headers=headers, cookies=cookies).json()
+    except Exception as e:
+        exit(f"state: {e}")
     if 'data' in state:
         state_data = state.get("data")
         is_pass = state_data.get("is_pass")
@@ -53,7 +54,10 @@ def state_request():
 def apply_request():
     # is_retry: true/false ?!
     data = '{"is_retry":true}'
-    apply = requests.post(url_apply, headers=headers, data=data, cookies=cookies).json()
+    try:
+        apply = requests.post(url_apply, headers=headers, data=data, cookies=cookies).json()
+    except Exception as e:
+        exit(f"apply: {e}")  
     data = apply["data"]
     code = apply["code"]
     if code == 0:
