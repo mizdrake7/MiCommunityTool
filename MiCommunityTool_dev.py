@@ -34,6 +34,7 @@ api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
 url_state = api + "user/bl-switch/state"
 url_apply = api + "apply/bl-auth"
+# for get info user: api + "user/data"
 
 def state_request():
     print("\n[STATE]:")
