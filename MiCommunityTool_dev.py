@@ -1,3 +1,18 @@
+#!/usr/bin/python
+
+import os
+import importlib
+
+while True:
+    for lib in ['requests', 'ntplib']:
+        try:
+            importlib.import_module(lib)
+        except ModuleNotFoundError:
+            os.system(f'pip install {lib}')
+            break
+    else:
+        break
+
 import requests, json, hashlib, urllib.parse, time, sys
 from datetime import datetime, timedelta, timezone
 import ntplib
@@ -13,7 +28,6 @@ pwd = input('\nEnter pwd: ')
 
 try:
     r1 = requests.post("https://account.xiaomi.com/pass/serviceLoginAuth2", headers=headers, data={"callback": "https://sgp-api.buy.mi.com/bbs/api/global/user/login-back?followup=https%3A%2F%2Fnew.c.mi.com%2Fglobal%2F&sign=NTRhYmNhZWI1ZWM2YTFmY2U3YzU1NzZhOTBhYjJmZWI1ZjY3MWNiNQ%2C%2C", "sid": "18n_bbs_global", "_sign": "Phs2y/c0Xf7vJZG9Z6n9c+Nbn7g=", "user": user, "hash": hashlib.md5(pwd.encode('utf-8')).hexdigest().upper(), "_json": "true", "serviceParam": '{"checkSafePhone":false,"checkSafeAddress":false,"lsrp_score":0.0}'})
-    #print(r1.text)
     json_data = json.loads(r1.text[11:])
     if json_data["code"] == 70016: exit("invalid user or pwd")
     if "notificationUrl" in json_data:
@@ -23,7 +37,7 @@ try:
         elif "BindAppealOrSafePhone" in check:
             exit(f"Verification, please add an phone number to the account: {check}")
         else:
-            exit(check)
+            exit(f"check: {check}")
     region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=r1.cookies.get_dict()).text[11:])["data"]["region"]
     print(f"\nAccount Region: {region}")
     location_url = json_data['location']
@@ -78,16 +92,18 @@ def apply_request():
     code = apply["code"]
     if code == 0:
         apply_result = data.get("apply_result")
-        deadline_format = data.get("deadline_format")
-        date, time = deadline_format.split()
         if apply_result == 1:
             print("Application Successful")
             state_request()
             exit()
         elif apply_result == 4:
+            deadline_format = data.get("deadline_format")
+            date, time = deadline_format.split()
             print(f"\nAccount Error Please try again after {deadline_format} (mm/dd)\n")
             exit()
         elif apply_result == 3:
+            deadline_format = data.get("deadline_format")
+            date, time = deadline_format.split()
             print(f"\nApplication quota limit reached, please try again after {date} (mm/dd) {time} (GMT+8)\n")
             return 1
         elif apply_result == 5:
