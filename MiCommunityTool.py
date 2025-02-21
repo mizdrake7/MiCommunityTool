@@ -2,7 +2,11 @@
 
 version = "1.0"
 
+exit("Warning: The tool is currently unstable. Please do not use it until a new update is released soon.")
+
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
+
+
 
 import os
 import importlib
