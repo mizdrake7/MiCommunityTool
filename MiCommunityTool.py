@@ -1,97 +1,67 @@
 #!/usr/bin/python
 
-version = "1.0"
-
-exit("Warning: The tool is currently unstable. Please do not use it until a new update is released soon.")
-
-print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
-
-
-
 import os
 import importlib
 
-for lib in ['requests', 'urllib3']:
-    try:
-        importlib.import_module(lib)
-    except ModuleNotFoundError:
-        os.system(f'pip install {lib}')
+while True:
+    for lib in ['requests', 'ntplib']:
+        try:
+            importlib.import_module(lib)
+        except ModuleNotFoundError:
+            os.system(f'pip install {lib}')
+            break
+    else:
+        break
 
-import requests, json, hashlib, urllib.parse, sys, threading
-from datetime import datetime, timezone, timedelta
-from base64 import b64encode, b64decode
+import requests, json, hashlib, urllib.parse, time, sys, threading
+from datetime import datetime, timedelta, timezone
+import ntplib
 
-# for global
-sid = "18n_bbs_global"
+version = "1.1"
+
+print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
+
+headers = {"User-Agent": "offici5l/MiCommunityTool"}
+
+user = input('\nEnter user: ')
+pwd = input('\nEnter pwd: ')
+
+try:
+    r1 = requests.post("https://account.xiaomi.com/pass/serviceLoginAuth2", headers=headers, data={"callback": "https://sgp-api.buy.mi.com/bbs/api/global/user/login-back?followup=https%3A%2F%2Fnew.c.mi.com%2Fglobal%2F&sign=NTRhYmNhZWI1ZWM2YTFmY2U3YzU1NzZhOTBhYjJmZWI1ZjY3MWNiNQ%2C%2C", "sid": "18n_bbs_global", "_sign": "Phs2y/c0Xf7vJZG9Z6n9c+Nbn7g=", "user": user, "hash": hashlib.md5(pwd.encode('utf-8')).hexdigest().upper(), "_json": "true", "serviceParam": '{"checkSafePhone":false,"checkSafeAddress":false,"lsrp_score":0.0}'})
+    json_data = json.loads(r1.text[11:])
+    if json_data["code"] == 70016: exit("invalid user or pwd")
+    if "notificationUrl" in json_data:
+        check = json_data["notificationUrl"]
+        if "SetEmail" in check:
+            exit(f"Verification, please add an email to the account: {check}")
+        elif "BindAppealOrSafePhone" in check:
+            exit(f"Verification, please add an phone number to the account: {check}")
+        else:
+            exit(f"check: {check}")
+    region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=r1.cookies.get_dict()).text[11:])["data"]["region"]
+    print(f"\nAccount Region: {region}")
+    location_url = json_data['location']
+    r2 = requests.get(location_url, headers=headers, allow_redirects=False)
+    cookies = r2.cookies.get_dict()
+except Exception as e:
+    exit(f"Error: {e}")
+
+
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
-# for info: api + "user/data"
 url_state = api + "user/bl-switch/state"
 url_apply = api + "apply/bl-auth"
 
-# version com.mi.global.bbs 
-version_name = "5.4.11"
-version_code = "500411"
-
-base = "https://account.xiaomi.com/"
-auth1 = base + "pass/serviceLogin"
-auth2 = base + "pass/serviceLoginAuth2"
-
-def login():
-    try:
-        user = input('Enter user: ')
-        hash = hashlib.md5(input('Enter pwd: ').encode()).hexdigest().upper()
-        data = {'user': user, 'hash': hash}
-        params = {"_json": "true"}
-        r1 = requests.post(auth2, data=data, params=params)
-        r1_text = json.loads(r1.text[11:])
-        if "notificationUrl" in r1_text:
-            check = r1_text["notificationUrl"]
-            if "SetEmail" in check:
-                exit("Add email to account")
-            if "BindAppealOrSafePhone" in check:
-                exit("Add phone number to account")
-        if r1_text["code"] == 70016:
-            exit("invalid user or pwd")
-        cookies = r1.cookies.get_dict()
-    except Exception as e:
-        exit(f"r1: {type(e).__name__}")
-
-    cookies = {k: cookies[k] for k in ['deviceId', 'passToken', 'userId']}
-    with open("micookies.json", "w") as f:
-        json.dump(cookies, f, indent=4)
-
-    return cookies
-
-
-try:
-    with open('micookies.json', 'r') as f:
-        cookies = json.load(f)
-    input(f"userId: {cookies['userId']}, you are already logged in\nPress Enter to continue or Ctrl+d to log out.\n")
-except (FileNotFoundError, json.JSONDecodeError, EOFError):
-    if os.path.exists('micookies.json'):
-        os.remove('micookies.json')
-    cookies = login()
-
-
-try:
-    params = {"sid": sid, "_json": "true"}
-    r2 = requests.get(auth1, cookies=cookies, params=params)
-    r2_text = json.loads(r2.text[11:])
-    location = r2_text["location"]
-    nonce = r2_text["nonce"]
-    ssecurity = r2_text["ssecurity"]
-    sign = b64encode(hashlib.sha1(f'nonce={nonce}&{ssecurity}'.encode()).digest()).decode()
-    clientSign = urllib.parse.quote_plus(sign)
-    new_bbs_serviceToken = requests.get(f"{location}&clientSign={clientSign}").cookies.get_dict()["new_bbs_serviceToken"]
-except (KeyError, requests.RequestException, json.JSONDecodeError) as e:
-    exit(f"Error: {e}")
-
-headers = {"Cookie": f"new_bbs_serviceToken={new_bbs_serviceToken}; versionCode={version_code}; versionName={version_name}; deviceId={cookies['deviceId']}"}
+# url_info = api + "user/data"
+# info = requests.get(url_info, headers=headers, cookies=cookies).json()
+#print(info)
 
 def state_request():
     print("\n[STATE]:")
-    state = requests.get(url_state, headers=headers).json()
+    try:
+        state = requests.get(url_state, headers=headers, cookies=cookies).json()
+    except Exception as e:
+        exit(f"state: {e}")
     if 'data' in state:
         state_data = state.get("data")
         is_pass = state_data.get("is_pass")
@@ -103,7 +73,6 @@ def state_request():
         else:
             if button_state == 1:
                 print("Apply for unlocking\n")
-                return 0
             elif button_state == 2:
                 print(f"Account Error Please try again after {deadline_format} (mm/dd)\n")
                 exit()
@@ -115,21 +84,26 @@ def state_request():
 def apply_request():
     # is_retry: true/false ?!
     data = '{"is_retry":true}'
-    apply = requests.post(url_apply, headers=headers, data=data).json()
+    try:
+        apply = requests.post(url_apply, headers=headers, data=data, cookies=cookies).json()
+    except Exception as e:
+        exit(f"apply: {e}")  
     data = apply["data"]
     code = apply["code"]
     if code == 0:
         apply_result = data.get("apply_result")
-        deadline_format = data.get("deadline_format")
-        date, time = deadline_format.split()
         if apply_result == 1:
             print("Application Successful")
             state_request()
             exit()
         elif apply_result == 4:
+            deadline_format = data.get("deadline_format")
+            date, time = deadline_format.split()
             print(f"\nAccount Error Please try again after {deadline_format} (mm/dd)\n")
             exit()
         elif apply_result == 3:
+            deadline_format = data.get("deadline_format")
+            date, time = deadline_format.split()
             print(f"\nApplication quota limit reached, please try again after {date} (mm/dd) {time} (GMT+8)\n")
             return 1
         elif apply_result == 5:
@@ -173,4 +147,3 @@ if apply_request() == 1:
             apply_request()
         except (EOFError):
             exit()
-
