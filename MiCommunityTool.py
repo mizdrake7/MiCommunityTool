@@ -17,7 +17,7 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-version = "1.2"
+version = "1.3"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
@@ -32,38 +32,38 @@ def login():
     pwd = input('\nEnter pwd: ')
     hash_pwd = hashlib.md5(pwd.encode()).hexdigest().upper()
     cookies = {}
-    
+
     def parse(res): return json.loads(res.text[11:])
-    
+
     r = requests.get(f"{base_url}/pass/serviceLogin", params={'sid': sid, '_json': True}, headers=headers, cookies=cookies)
     cookies.update(r.cookies.get_dict())
     data = {k: v[0] for k, v in parse_qs(urlparse(parse(r)['location']).query).items()}
     data.update({'user': user, 'hash': hash_pwd})
-    
+
     r = requests.post(f"{base_url}/pass/serviceLoginAuth2", data=data, headers=headers, cookies=cookies)
     cookies.update(r.cookies.get_dict())
     res = parse(r)
-    
+
     if res["code"] == 70016: exit("invalid user or pwd")
     if 'notificationUrl' in res:
         url = res['notificationUrl']
         if any(x in url for x in ['callback','SetEmail','BindAppealOrSafePhone']): exit(url)
-        
+
         cookies.update({"NativeUserAgent": base64.b64encode(User.encode()).decode()})
         params = parse_qs(urlparse(url).query)
         cookies.update(requests.get(f"{base_url}/identity/list", params=params, headers=headers, cookies=cookies).cookies.get_dict())
-        
+
         email = parse(requests.get(f"{base_url}/identity/auth/verifyEmail", params={'_json': True}, cookies=cookies, headers=headers))['maskedEmail']
         quota = parse(requests.post(f"{base_url}/identity/pass/sms/userQuota", data={'addressType': 'EM', 'contentType': 160040}, cookies=cookies, headers=headers))['info']
         print(f"Account Authentication\nemail: {email}, Remaining attempts: {quota}")
         input("\nPress Enter to send the verification code")
-        
+
         code_res = parse(requests.post(f"{base_url}/identity/auth/sendEmailTicket", cookies=cookies, headers=headers))
-        
+
         if code_res["code"] == 0: print(f"\nVerification code sent to your {email}")
         elif code_res["code"] == 70022: exit("Sent too many codes. Try again tomorrow.")
         else: exit(code_res)
-        
+
         while True:
             ticket = input("Enter code: ").strip()
             v_res = parse(requests.post(f"{base_url}/identity/auth/verifyEmail", data={'ticket':ticket, 'trust':True}, cookies=cookies, headers=headers))
@@ -76,11 +76,11 @@ def login():
 
         r = requests.get(f"{base_url}/pass/serviceLogin", params={'_json': "true", 'sid': sid}, cookies=cookies, headers=headers)
         res = parse(r)
-    
+
     nonce, ssecurity = res['nonce'], res['ssecurity']
     res['location'] += f"&clientSign={quote(base64.b64encode(hashlib.sha1(f'nonce={nonce}&{ssecurity}'.encode()).digest()))}"
     serviceToken = requests.get(res['location'], headers=headers, cookies=cookies).cookies.get_dict()
-    
+
     micdata = {"userId": res['userId'], "serviceToken": serviceToken}
     with open("micdata.json", "w") as f: json.dump(micdata, f)
     return micdata
@@ -96,6 +96,7 @@ except (FileNotFoundError, json.JSONDecodeError, EOFError):
 
 serviceToken = micdata["serviceToken"]
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
+
 U_state = api + "user/bl-switch/state"
 U_apply = api + "apply/bl-auth"
 
@@ -124,10 +125,11 @@ state_request()
 def apply_request():
     print("\n[APPLY]:")
     try:
-        apply = requests.post(U_apply, data='{"is_retry":true}', headers=headers, cookies=serviceToken).json()
-        if apply.get("code") != 0:
-            exit(apply)
-        data_ = apply.get("data", {}) or {}
+        apply = requests.post(U_apply, data='{"is_retry":true}', headers=headers, cookies=serviceToken)
+        print(f"Server response time: {apply.headers['Date']}")
+        if apply.json().get("code") != 0:
+            exit(apply.json())
+        data_ = apply.json().get("data", {}) or {}
         apply_ = data_.get("apply_result", 0)
         deadline_ = data_.get("deadline_format", "")
         messages = {
@@ -206,7 +208,7 @@ def schedule_daily_task():
             else:
                 precise_sleep(target)
 
-        latency = measure_latency(url_apply)
+        latency = measure_latency(U_apply)
         execution_time = target + timedelta(minutes=3) - timedelta(milliseconds=latency)
 
         print(f"Adjusted execution time: {execution_time.strftime('%H:%M:%S.%f')}")
@@ -221,5 +223,3 @@ while True:
     result = schedule_daily_task()
     if result != 1:
         break
-
-
