@@ -193,19 +193,19 @@ def schedule_daily_task():
             precise_sleep(start_calc_time)
         
         print("\n[INFO] Starting initial measurements...")
-        base_latency = measure_latency(url_apply, samples=5, method='POST')
+        base_latency = measure_latency(U_apply, samples=5, method='POST')
         print(f"Initial latency: {base_latency:.0f}ms")
         
         dynamic_time = midnight - timedelta(seconds=60)
         precise_sleep(dynamic_time)
         print("\n[INFO] Starting dynamic measurements...")
-        dynamic_latency = measure_latency(url_apply, samples=3, method='HEAD')
+        dynamic_latency = measure_latency(U_apply, samples=3, method='HEAD')
         print(f"Dynamic latency: {dynamic_latency:.0f}ms")
         
         final_target = midnight - timedelta(milliseconds=SAFETY_THRESHOLD)
         precise_sleep(final_target)
         print("\n[INFO] Starting final measurements...")
-        final_latency = measure_latency(url_apply, samples=2, method='HEAD')
+        final_latency = measure_latency(U_apply, samples=2, method='HEAD')
         print(f"Final latency: {final_latency:.0f}ms")
         
         adjusted_latency = min((base_latency * 0.2) + (dynamic_latency * 0.3) + (final_latency * 0.5), MAX_ALLOWED_LATENCY)
