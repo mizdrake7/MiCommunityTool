@@ -17,7 +17,7 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-version = "1.3"
+version = "1.4"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
@@ -77,11 +77,13 @@ def login():
         r = requests.get(f"{base_url}/pass/serviceLogin", params={'_json': "true", 'sid': sid}, cookies=cookies, headers=headers)
         res = parse(r)
 
+    region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=cookies).text[11:])["data"]["region"]    
+
     nonce, ssecurity = res['nonce'], res['ssecurity']
     res['location'] += f"&clientSign={quote(base64.b64encode(hashlib.sha1(f'nonce={nonce}&{ssecurity}'.encode()).digest()))}"
     serviceToken = requests.get(res['location'], headers=headers, cookies=cookies).cookies.get_dict()
 
-    micdata = {"userId": res['userId'], "serviceToken": serviceToken}
+    micdata = {"userId": res['userId'], "serviceToken": serviceToken, "region": region}
     with open("micdata.json", "w") as f: json.dump(micdata, f)
     return micdata
 
@@ -95,10 +97,22 @@ except (FileNotFoundError, json.JSONDecodeError, EOFError):
     micdata = login()
 
 serviceToken = micdata["serviceToken"]
+
+print(f"\nAccount Region: {micdata['region']}")
+
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
 
 U_state = api + "user/bl-switch/state"
 U_apply = api + "apply/bl-auth"
+U_info = api + "user/data"
+
+print("\n[INFO]:")
+info = requests.get(U_info, headers=headers, cookies=serviceToken).json()['data']
+
+print(f"{info['registered_day']} days in Community")
+print(f"LV{info['level_info']['level']} {info['level_info']['level_title']}")
+print(f"{info['level_info']['max_value'] - info['level_info']['current_value']} more points to the next level")
+print(f"Points: {info['level_info']['current_value']}")
 
 def state_request():
     print("\n[STATE]:")
