@@ -3,6 +3,8 @@
 import os
 import importlib
 
+exit("currently unstable. Please use the stable release.")
+
 while True:
     for lib in ['requests', 'ntplib']:
         try:
