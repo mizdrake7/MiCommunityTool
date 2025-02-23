@@ -17,7 +17,7 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-version = "1.4"
+version = "1.5"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
@@ -88,10 +88,13 @@ def login():
     return micdata
 
 try:
-    with open('micdata.json') as f: micdata = json.load(f)
+    with open('micdata.json') as f:
+        micdata = json.load(f)
+    if not all(micdata.get(k) for k in ("userId", "serviceToken", "region")):
+        raise ValueError
     print(f"\nAccount ID: {micdata['userId']}")
     input("Press 'Enter' to continue.\nPress 'Ctrl' + 'd' to log out.")
-except (FileNotFoundError, json.JSONDecodeError, EOFError):
+except (FileNotFoundError, json.JSONDecodeError, EOFError, ValueError):
     if os.path.exists('micdata.json'):
         os.remove('micdata.json')
     micdata = login()
