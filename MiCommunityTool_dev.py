@@ -3,8 +3,6 @@
 import os
 import importlib
 
-exit("currently unstable. Please use the stable release.")
-
 while True:
     for lib in ['requests', 'ntplib']:
         try:
@@ -34,38 +32,38 @@ def login():
     pwd = input('\nEnter pwd: ')
     hash_pwd = hashlib.md5(pwd.encode()).hexdigest().upper()
     cookies = {}
-    
+
     def parse(res): return json.loads(res.text[11:])
-    
+
     r = requests.get(f"{base_url}/pass/serviceLogin", params={'sid': sid, '_json': True}, headers=headers, cookies=cookies)
     cookies.update(r.cookies.get_dict())
     data = {k: v[0] for k, v in parse_qs(urlparse(parse(r)['location']).query).items()}
     data.update({'user': user, 'hash': hash_pwd})
-    
+
     r = requests.post(f"{base_url}/pass/serviceLoginAuth2", data=data, headers=headers, cookies=cookies)
     cookies.update(r.cookies.get_dict())
     res = parse(r)
-    
+
     if res["code"] == 70016: exit("invalid user or pwd")
     if 'notificationUrl' in res:
         url = res['notificationUrl']
         if any(x in url for x in ['callback','SetEmail','BindAppealOrSafePhone']): exit(url)
-        
+
         cookies.update({"NativeUserAgent": base64.b64encode(User.encode()).decode()})
         params = parse_qs(urlparse(url).query)
         cookies.update(requests.get(f"{base_url}/identity/list", params=params, headers=headers, cookies=cookies).cookies.get_dict())
-        
+
         email = parse(requests.get(f"{base_url}/identity/auth/verifyEmail", params={'_json': True}, cookies=cookies, headers=headers))['maskedEmail']
         quota = parse(requests.post(f"{base_url}/identity/pass/sms/userQuota", data={'addressType': 'EM', 'contentType': 160040}, cookies=cookies, headers=headers))['info']
         print(f"Account Authentication\nemail: {email}, Remaining attempts: {quota}")
         input("\nPress Enter to send the verification code")
-        
+
         code_res = parse(requests.post(f"{base_url}/identity/auth/sendEmailTicket", cookies=cookies, headers=headers))
-        
+
         if code_res["code"] == 0: print(f"\nVerification code sent to your {email}")
         elif code_res["code"] == 70022: exit("Sent too many codes. Try again tomorrow.")
         else: exit(code_res)
-        
+
         while True:
             ticket = input("Enter code: ").strip()
             v_res = parse(requests.post(f"{base_url}/identity/auth/verifyEmail", data={'ticket':ticket, 'trust':True}, cookies=cookies, headers=headers))
@@ -78,28 +76,46 @@ def login():
 
         r = requests.get(f"{base_url}/pass/serviceLogin", params={'_json': "true", 'sid': sid}, cookies=cookies, headers=headers)
         res = parse(r)
-    
+
+    region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=cookies).text[11:])["data"]["region"]    
+
     nonce, ssecurity = res['nonce'], res['ssecurity']
     res['location'] += f"&clientSign={quote(base64.b64encode(hashlib.sha1(f'nonce={nonce}&{ssecurity}'.encode()).digest()))}"
     serviceToken = requests.get(res['location'], headers=headers, cookies=cookies).cookies.get_dict()
-    
-    micdata = {"userId": res['userId'], "serviceToken": serviceToken}
+
+    micdata = {"userId": res['userId'], "serviceToken": serviceToken, "region": region}
     with open("micdata.json", "w") as f: json.dump(micdata, f)
     return micdata
 
 try:
-    with open('micdata.json') as f: micdata = json.load(f)
+    with open('micdata.json') as f:
+        micdata = json.load(f)
+    if not all(micdata.get(k) for k in ("userId", "serviceToken", "region")):
+        raise ValueError
     print(f"\nAccount ID: {micdata['userId']}")
     input("Press 'Enter' to continue.\nPress 'Ctrl' + 'd' to log out.")
-except (FileNotFoundError, json.JSONDecodeError, EOFError):
+except (FileNotFoundError, json.JSONDecodeError, EOFError, ValueError):
     if os.path.exists('micdata.json'):
         os.remove('micdata.json')
     micdata = login()
 
 serviceToken = micdata["serviceToken"]
+
+print(f"\nAccount Region: {micdata['region']}")
+
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
+
 U_state = api + "user/bl-switch/state"
 U_apply = api + "apply/bl-auth"
+U_info = api + "user/data"
+
+print("\n[INFO]:")
+info = requests.get(U_info, headers=headers, cookies=serviceToken).json()['data']
+
+print(f"{info['registered_day']} days in Community")
+print(f"LV{info['level_info']['level']} {info['level_info']['level_title']}")
+print(f"{info['level_info']['max_value'] - info['level_info']['current_value']} more points to the next level")
+print(f"Points: {info['level_info']['current_value']}")
 
 def state_request():
     print("\n[STATE]:")
@@ -123,10 +139,15 @@ def state_request():
 
 state_request()
 
+session = requests.Session()
+session.headers.update(headers)
+session.cookies.update(micdata["serviceToken"])
+
 def apply_request():
     print("\n[APPLY]:")
     try:
-        apply = requests.post(U_apply, data='{"is_retry":true}', headers=headers, cookies=serviceToken)
+        apply = session.post(U_apply, json={"is_retry": True})
+        print(f"Request elapsed time: {apply.elapsed.total_seconds()} seconds")
         print(f"Server response time: {apply.headers['Date']}")
         if apply.json().get("code") != 0:
             exit(apply.json())
@@ -152,85 +173,47 @@ def apply_request():
         exit(f"apply: {e}")
 
 
-def get_ntp_time(servers=["cn.pool.ntp.org", "time.apple.com", "pool.ntp.org"]):
-    client = ntplib.NTPClient()
-    for server in servers:
-        try:
-            response = client.request(server, version=3, timeout=1)
-            return datetime.fromtimestamp(response.tx_time, timezone.utc)
-        except Exception:
-            continue
-    return datetime.now(timezone.utc)
+def calcul():
+    def send_head(_range):
+        return [session.head(U_apply).elapsed.total_seconds() for _ in range(_range)]
 
-def get_beijing_time():
-    return get_ntp_time().astimezone(timezone(timedelta(hours=8)))
+    send_head(1)
+    res = session.head(U_apply)
+    h, m, s = map(int, res.headers['Date'][17:25].split(':'))
+    s_s = h * 3600 + m * 60 + s
+    t_s = 16 * 3600
+    if s_s > t_s:
+        t_s += 86400
+    r_s = t_s - s_s  
+    if r_s < 6:
+        if r_s == 1:
+            send_head(2)
+        elif r_s == 2:
+            send_head(4)
+        elif r_s == 3:
+            send_head(6)
+        elif r_s == 4:
+            send_head(8)
+        elif r_s == 5:
+            send_head(10)
+        return apply_request()
 
-def precise_sleep(target_time):
-    while (diff := (target_time - get_beijing_time()).total_seconds()) > 0:
-        time.sleep(max(diff * 0.5, 0.001))
+    e_t = send_head(10)
+    a_e = round(sum(e_t[3:]) / 7, 1)
+    t_r = t_s - s_s - sum(e_t)
+    ss = t_s - a_e
 
-def measure_latency(url, samples=3, method='HEAD'):
-    latencies = []
-    for _ in range(samples):
-        try:
-            start = time.perf_counter()
-            (requests.head if method == 'HEAD' else requests.post)(url, timeout=1)
-            latencies.append((time.perf_counter() - start) * 1000)
-        except:
-            pass
-    return min((sum(sorted(latencies)[:3])/3)*1.5, 2500) if latencies else 2000
+    hours, remainder = divmod(ss, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    microseconds = (seconds - int(seconds)) * 1_000_000
 
-def schedule_daily_task():
-    SAFETY_THRESHOLD = 500 
-    MAX_ALLOWED_LATENCY = 1500 
+    print(f"request will be sent at: {int(hours):02}:{int(minutes):02}:{int(seconds):02}.{int(microseconds):06} GMT + 8")
 
-    while True:
-        now = get_beijing_time()
-        midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        start_calc_time = midnight - timedelta(minutes=5)
-        
-        if now < start_calc_time:
-            print(f"\n[INFO] Calculations will begin at: {start_calc_time.strftime('%H:%M:%S')} CST")
-            precise_sleep(start_calc_time)
-        
-        print("\n[INFO] Starting initial measurements...")
-        base_latency = measure_latency(U_apply, samples=5, method='POST')
-        print(f"Initial latency: {base_latency:.0f}ms")
-        
-        dynamic_time = midnight - timedelta(seconds=60)
-        precise_sleep(dynamic_time)
-        print("\n[INFO] Starting dynamic measurements...")
-        dynamic_latency = measure_latency(U_apply, samples=3, method='HEAD')
-        print(f"Dynamic latency: {dynamic_latency:.0f}ms")
-        
-        final_target = midnight - timedelta(milliseconds=SAFETY_THRESHOLD)
-        precise_sleep(final_target)
-        print("\n[INFO] Starting final measurements...")
-        final_latency = measure_latency(U_apply, samples=2, method='HEAD')
-        print(f"Final latency: {final_latency:.0f}ms")
-        
-        adjusted_latency = min((base_latency * 0.2) + (dynamic_latency * 0.3) + (final_latency * 0.5), MAX_ALLOWED_LATENCY)
-        execution_time = midnight - timedelta(milliseconds=adjusted_latency)
-        
-        if execution_time < (midnight - timedelta(milliseconds=SAFETY_THRESHOLD)):
-            execution_time = midnight - timedelta(milliseconds=SAFETY_THRESHOLD)
-        
-        print(f"\n[INFO] Final execution time: {execution_time.strftime('%H:%M:%S.%f')[:-3]} | Latency: {adjusted_latency:.0f}ms")
-        precise_sleep(execution_time)
-        
-        if get_beijing_time() < midnight + timedelta(seconds=1):
-            result = apply_request()
-            if result == 1:
-                return 1
-        else:
-            print("\nMissed the sending window! Retrying tomorrow.")
-
-
+    time.sleep(t_r)
+    send_head(9)
+    return apply_request()
 
 while True:
-    result = schedule_daily_task()
+    result = calcul()
     if result != 1:
         break
-
-
