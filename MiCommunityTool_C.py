@@ -35,6 +35,8 @@ if match:
 else:
     raise ValueError("Invalid time format. Use: HH:MM:SS:UUUUUU")
 
+print(f"Selected time: {target_hour:02}:{target_minute:02}:{target_second:02}:{target_microsecond:06}")
+
 version = "1.5(C)"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
