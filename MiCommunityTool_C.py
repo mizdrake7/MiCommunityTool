@@ -17,19 +17,19 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, argparse, r
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-parser = argparse.ArgumentParser(description="set a specific execution time(china time).")
+version = "1.5(C)"
+print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
+parser = argparse.ArgumentParser(description="set a specific execution time(china time).")
 parser.add_argument(
     "--time",
     type=str,
     default="00:00:00:000000",
-    help="Specify the target execution time in the format: HH:MM:SS:UUUUUU (e.g., 14:30:01:000000)"
+    help="Specify the target execution time in the format: HH:MM:SS:UUUUUU (e.g., 23:59:59:000000)"
 )
-
 args = parser.parse_args()
 
 match = re.match(r"(\d+):(\d+):(\d+):(\d+)", args.time)
-
 if match:
     target_hour, target_minute, target_second, target_microsecond = map(int, match.groups())
 else:
@@ -37,9 +37,6 @@ else:
 
 print(f"Selected time: {target_hour:02}:{target_minute:02}:{target_second:02}:{target_microsecond:06}")
 
-version = "1.5(C)"
-
-print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
 User = "offici5l/MiCommunityTool"
 headers = {"User-Agent": User}
@@ -125,7 +122,8 @@ def apply_request():
         apply = requests.post("https://sgp-api.buy.mi.com/bbs/api/global/apply/bl-auth", data='{"is_retry":true}', headers=headers, cookies=serviceToken)
         print(f"Server response time: {apply.headers['Date']}")
         if apply.json().get("code") != 0:
-            exit(apply.json())
+            print(apply.json())
+            return
         data_ = apply.json().get("data", {}) or {}
         apply_ = data_.get("apply_result", 0)
         deadline_ = data_.get("deadline_format", "")
@@ -139,32 +137,34 @@ def apply_request():
         }
         print(messages.get(apply_, ""))
         if apply_ == 1:
-            return 0
+            exit()
         else:
-            return 1
+            return
     except Exception as e:
         print(e)
-        return 1
+        return
 
 def schedule_daily_task():
     beijing_tz = timezone(timedelta(hours=8))
     while True:
         now = datetime.now(beijing_tz)
-        target = now.replace(hour=target_hour, minute=target_minute, second=target_second, microsecond=target_microsecond)
-        print(f"Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
-        print(f"Target time: {target.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+        target = now.replace(
+            hour=target_hour,
+            minute=target_minute,
+            second=target_second,
+            microsecond=target_microsecond
+        )
         if now >= target:
             target += timedelta(days=1)
-            print(f"Target time has passed. Execution will be scheduled for: {target.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
-        sleep_time = (target - datetime.now(beijing_tz)).total_seconds()
-        print(f"Sleeping for {sleep_time} seconds ({sleep_time / 60:.2f} minutes) until execution...", flush=True)
+        print(f"Current time: {now.strftime('%Y-%m-%d %H:%M:%S.%f')}", flush=True)
+        print(f"Target time: {target.strftime('%Y-%m-%d %H:%M:%S.%f')}", flush=True)
+        sleep_time = (target - now).total_seconds()
+        print(f"Sleeping for {sleep_time:.2f} seconds ({sleep_time / 60:.2f} minutes) until execution...", flush=True)
         time.sleep(sleep_time)
         print("Executing apply_request() now...", flush=True)
-        result = apply_request()
-        return result
+        apply_request()
+        return
 
 
 while True:
-    result = schedule_daily_task()
-    if result != 0:
-        break
+    schedule_daily_task()
