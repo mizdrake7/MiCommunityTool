@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+versionCode = '500415'
+versionName = '5.4.15'
+
 import os
 import importlib
 
@@ -17,7 +20,7 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-version = "1.5"
+version = "1.5.1"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
@@ -37,6 +40,9 @@ def login():
 
     r = requests.get(f"{base_url}/pass/serviceLogin", params={'sid': sid, '_json': True}, headers=headers, cookies=cookies)
     cookies.update(r.cookies.get_dict())
+
+    deviceId = cookies["deviceId"]
+
     data = {k: v[0] for k, v in parse_qs(urlparse(parse(r)['location']).query).items()}
     data.update({'user': user, 'hash': hash_pwd})
 
@@ -83,14 +89,14 @@ def login():
     res['location'] += f"&clientSign={quote(base64.b64encode(hashlib.sha1(f'nonce={nonce}&{ssecurity}'.encode()).digest()))}"
     serviceToken = requests.get(res['location'], headers=headers, cookies=cookies).cookies.get_dict()
 
-    micdata = {"userId": res['userId'], "serviceToken": serviceToken, "region": region}
+    micdata = {"userId": res['userId'], "new_bbs_serviceToken": serviceToken["new_bbs_serviceToken"], "region": region, "deviceId": deviceId}
     with open("micdata.json", "w") as f: json.dump(micdata, f)
     return micdata
 
 try:
     with open('micdata.json') as f:
         micdata = json.load(f)
-    if not all(micdata.get(k) for k in ("userId", "serviceToken", "region")):
+    if not all(micdata.get(k) for k in ("userId", "new_bbs_serviceToken", "region", "deviceId")):
         raise ValueError
     print(f"\nAccount ID: {micdata['userId']}")
     input("Press 'Enter' to continue.\nPress 'Ctrl' + 'd' to log out.")
@@ -99,7 +105,9 @@ except (FileNotFoundError, json.JSONDecodeError, EOFError, ValueError):
         os.remove('micdata.json')
     micdata = login()
 
-serviceToken = micdata["serviceToken"]
+new_bbs_serviceToken = micdata["new_bbs_serviceToken"]
+
+deviceId = micdata["deviceId"]
 
 print(f"\nAccount Region: {micdata['region']}")
 
@@ -109,8 +117,16 @@ U_state = api + "user/bl-switch/state"
 U_apply = api + "apply/bl-auth"
 U_info = api + "user/data"
 
+headers = {
+  'User-Agent': "okhttp/4.12.0",
+  'Accept-Encoding': "gzip",
+  'Content-Type': "application/json",
+  'content-type': "application/json; charset=utf-8",
+  'Cookie': f"new_bbs_serviceToken={new_bbs_serviceToken};versionCode={versionCode};versionName={versionName};deviceId={deviceId};"
+}
+
 print("\n[INFO]:")
-info = requests.get(U_info, headers=headers, cookies=serviceToken).json()['data']
+info = requests.get(U_info, headers=headers).json()['data']
 
 print(f"{info['registered_day']} days in Community")
 print(f"LV{info['level_info']['level']} {info['level_info']['level_title']}")
@@ -120,7 +136,7 @@ print(f"Points: {info['level_info']['current_value']}")
 def state_request():
     print("\n[STATE]:")
     try:
-        state = requests.get(U_state, headers=headers, cookies=serviceToken).json().get("data", {})
+        state = requests.get(U_state, headers=headers).json().get("data", {})
         is_ = state.get("is_pass")
         button_ = state.get("button_state")
         deadline_ = state.get("deadline_format", "")
@@ -142,7 +158,7 @@ state_request()
 def apply_request():
     print("\n[APPLY]:")
     try:
-        apply = requests.post(U_apply, data='{"is_retry":true}', headers=headers, cookies=serviceToken)
+        apply = requests.post(U_apply, data=json.dumps({"is_retry": True}), headers=headers)
         print(f"Server response time: {apply.headers['Date']}")
         if apply.json().get("code") != 0:
             exit(apply.json())
