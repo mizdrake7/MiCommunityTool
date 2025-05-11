@@ -17,3 +17,6 @@ curl -sSL https://github.com/offici5l/MiCommunityTool/releases/latest/download/M
 ```
 micommunit
 ```
+
+### Disclaimer
+***Use the MiCommunityTool at your own risk. The developer is not responsible for any damage or issues resulting from its use.***
