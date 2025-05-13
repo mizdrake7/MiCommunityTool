@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-versionCode = '500415'
-versionName = '5.4.15'
+versionCode = '500418'
+versionName = '5.4.18'
 
 import os
 import importlib
@@ -20,7 +20,7 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-version = "1.5.1"
+version = "1.5.2"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
