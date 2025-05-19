@@ -20,11 +20,11 @@ import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
 
-version = "1.5.2"
+version = "1.5.3"
 
 print(f"\n[V{version}] For issues or feedback:\n- GitHub: github.com/offici5l/MiCommunityTool/issues\n- Telegram: t.me/Offici5l_Group\n")
 
-User = "offici5l/MiCommunityTool"
+User = "okhttp/4.12.0"
 headers = {"User-Agent": User}
 
 def login():
@@ -118,7 +118,7 @@ U_apply = api + "apply/bl-auth"
 U_info = api + "user/data"
 
 headers = {
-  'User-Agent': "okhttp/4.12.0",
+  'User-Agent': User,
   'Accept-Encoding': "gzip",
   'Content-Type': "application/json",
   'content-type': "application/json; charset=utf-8",
