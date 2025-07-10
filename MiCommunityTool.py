@@ -7,7 +7,7 @@ import os
 import importlib
 
 while True:
-    for lib in ['requests', 'ntplib']:
+    for lib in ['requests', 'ntplib', 'icmplib']:
         try:
             importlib.import_module(lib)
         except ModuleNotFoundError:
@@ -19,6 +19,7 @@ while True:
 import requests, json, hashlib, urllib.parse, time, sys, os, base64, ntplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse, quote
+from icmplib import ping
 
 version = "1.5.3"
 
@@ -184,7 +185,10 @@ def apply_request():
         exit(f"apply: {e}")
 
 
-def get_ntp_time(servers=["pool.ntp.org", "time.google.com", "time.windows.com"]):
+def get_ntp_time(servers=["time1.google.com", "time2.google.com", "time3.google.com",
+    "time4.google.com", "time.android.com",
+    "time.aws.com", "time.google.com", "time.cloudflare.com",
+    "ntp.time.in.ua", "stratum1.net", "ntp5.stratum2.ru", "time.windows.com"]):
     client = ntplib.NTPClient()
     for server in servers:
         try:
@@ -206,23 +210,12 @@ def precise_sleep(target_time, precision=0.01):
         sleep_time = max(min(diff - precision/2, 1), precision)
         time.sleep(sleep_time)
 
-def measure_latency(url, samples=5):
-    latencies = []
-    for _ in range(samples):
-        try:
-            start = time.perf_counter()
-            requests.post(url, headers=headers, data='{}', timeout=2)
-            latencies.append((time.perf_counter() - start) * 1000)
-        except Exception:
-            continue
-
-    if len(latencies) < 3:
-        return 200
-
-    latencies.sort()
-    trim = int(len(latencies) * 0.2)
-    trimmed = latencies[trim:-trim] if trim else latencies
-    return sum(trimmed)/len(trimmed) * 1.3
+def ping_delay(host="sgp-api.buy.mi.com"):
+    try:
+        r = ping(host, count=3, interval=0.5, timeout=2)
+        return round(r.avg_rtt) if r.is_alive else 300
+    except:
+        return 300
 
 def schedule_daily_task():
     beijing_tz = timezone(timedelta(hours=8))
@@ -241,9 +234,11 @@ def schedule_daily_task():
             else:
                 precise_sleep(target)
 
-        latency = measure_latency(U_apply)
-        execution_time = target + timedelta(minutes=3) - timedelta(milliseconds=latency)
-
+        latency = ping_delay()
+        script_time = 59.091 + (166 - latency) * 0.006
+        seconds = int(script_time)
+        milliseconds = int((script_time % 1) * 1000)
+        execution_time = target.replace(second=seconds, microsecond=milliseconds * 1000)
         print(f"Adjusted execution time: {execution_time.strftime('%H:%M:%S.%f')}")
         precise_sleep(execution_time)
 
