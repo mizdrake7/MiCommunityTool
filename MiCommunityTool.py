@@ -132,7 +132,7 @@ info = requests.get(U_info, headers=headers).json()['data']
 print(f"{info['registered_day']} days in Community")
 print(f"LV{info['level_info']['level']} {info['level_info']['level_title']}")
 print(f"{info['level_info']['max_value'] - info['level_info']['current_value']} more points to the next level")
-print(f"Points: {info['level_info']['current_value']}")
+print(f"Total Points: {info['point']}")
 
 def state_request():
     print("\n[STATE]:")
