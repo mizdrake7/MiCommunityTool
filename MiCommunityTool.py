@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-versionCode = '500418'
-versionName = '5.4.18'
+versionCode = '500421'
+versionName = '5.4.21'
 
 import os
 import importlib
@@ -84,7 +84,7 @@ def login():
         r = requests.get(f"{base_url}/pass/serviceLogin", params={'_json': "true", 'sid': sid}, cookies=cookies, headers=headers)
         res = parse(r)
 
-    region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=cookies).text[11:])["data"]["region"]    
+    region = json.loads(requests.get(f"https://account.xiaomi.com/pass/user/login/region", headers=headers, cookies=cookies).text[11:])["data"]["region"]
 
     nonce, ssecurity = res['nonce'], res['ssecurity']
     res['location'] += f"&clientSign={quote(base64.b64encode(hashlib.sha1(f'nonce={nonce}&{ssecurity}'.encode()).digest()))}"
@@ -107,28 +107,25 @@ except (FileNotFoundError, json.JSONDecodeError, EOFError, ValueError):
     micdata = login()
 
 new_bbs_serviceToken = micdata["new_bbs_serviceToken"]
-
 deviceId = micdata["deviceId"]
 
 print(f"\nAccount Region: {micdata['region']}")
 
 api = "https://sgp-api.buy.mi.com/bbs/api/global/"
-
 U_state = api + "user/bl-switch/state"
 U_apply = api + "apply/bl-auth"
 U_info = api + "user/data"
 
 headers = {
-  'User-Agent': User,
-  'Accept-Encoding': "gzip",
-  'Content-Type': "application/json",
-  'content-type': "application/json; charset=utf-8",
-  'Cookie': f"new_bbs_serviceToken={new_bbs_serviceToken};versionCode={versionCode};versionName={versionName};deviceId={deviceId};"
+    'User-Agent': User,
+    'Accept-Encoding': "gzip",
+    'Content-Type': "application/json",
+    'content-type': "application/json; charset=utf-8",
+    'Cookie': f"new_bbs_serviceToken={new_bbs_serviceToken};versionCode={versionCode};versionName={versionName};deviceId={deviceId};"
 }
 
 print("\n[INFO]:")
 info = requests.get(U_info, headers=headers).json()['data']
-
 print(f"{info['registered_day']} days in Community")
 print(f"LV{info['level_info']['level']} {info['level_info']['level_title']}")
 print(f"{info['level_info']['max_value'] - info['level_info']['current_value']} more points to the next level")
@@ -184,11 +181,9 @@ def apply_request():
     except Exception as e:
         exit(f"apply: {e}")
 
-
 def get_ntp_time(servers=["time1.google.com", "time2.google.com", "time3.google.com",
-    "time4.google.com", "time.android.com",
-    "time.aws.com", "time.google.com", "time.cloudflare.com",
-    "ntp.time.in.ua", "stratum1.net", "ntp5.stratum2.ru", "time.windows.com"]):
+    "time4.google.com", "time.android.com", "time.aws.com", "time.google.com",
+    "time.cloudflare.com", "ntp.time.in.ua", "stratum1.net", "ntp5.stratum2.ru", "time.windows.com"]):
     client = ntplib.NTPClient()
     for server in servers:
         try:
@@ -207,7 +202,7 @@ def precise_sleep(target_time, precision=0.01):
         diff = (target_time - datetime.now(target_time.tzinfo)).total_seconds()
         if diff <= 0:
             return
-        sleep_time = max(min(diff - precision/2, 1), precision)
+        sleep_time = max(min(diff - precision / 2, 1), precision)
         time.sleep(sleep_time)
 
 def ping_delay(host="sgp-api.buy.mi.com"):
@@ -216,6 +211,12 @@ def ping_delay(host="sgp-api.buy.mi.com"):
         return round(r.avg_rtt) if r.is_alive else 300
     except:
         return 300
+
+def calculate_script_time(ping_ms):
+    if ping_ms <= 5:
+        return 59.975
+    else:
+        return 59.091 + (166 - ping_ms) * 0.006
 
 def schedule_daily_task():
     beijing_tz = timezone(timedelta(hours=8))
@@ -235,7 +236,7 @@ def schedule_daily_task():
                 precise_sleep(target)
 
         latency = ping_delay()
-        script_time = 59.091 + (166 - latency) * 0.006
+        script_time = calculate_script_time(latency)
         seconds = int(script_time)
         milliseconds = int((script_time % 1) * 1000)
         execution_time = target.replace(second=seconds, microsecond=milliseconds * 1000)
@@ -245,7 +246,6 @@ def schedule_daily_task():
         result = apply_request()
         if result == 1:
             return 1
-
 
 while True:
     result = schedule_daily_task()
